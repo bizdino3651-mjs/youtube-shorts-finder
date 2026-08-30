@@ -3,12 +3,12 @@ import pandas as pd
 import os
 
 st.set_page_config(
-    page_title="유튜브 쇼츠 골든파인더 트렌드",
+    page_title="숏파! - Shorts Finder",
     layout="wide",
-    page_icon="🎬"
+    page_icon="🔥"
 )
 
-# --- 스타일링 ---
+# --- 트렌디한 모던 카드 UI 스타일링 ---
 st.markdown("""
     <style>
     .stApp { background-color: #f8f9fa; }
@@ -40,9 +40,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎬 유튜브 쇼츠 골든파인더 트렌드")
+# 1. 제목 변경 (불꽃 이모지 및 신규 서비스명 적용)
+st.title("🔥 숏파! - Shorts Finder 🔥")
 
-# 세션 상태 초기화 (검색 및 칩 선택 상태 유지)
+# 세션 상태 초기화 (칩 선택 상태 유지)
 if "selected_chip" not in st.session_state:
     st.session_state.selected_chip = None
 
@@ -53,17 +54,11 @@ CATEGORY_STRUCTURE = {
     "🛍️ 쇼핑 인텐트 (공통)": ["공항패션", "내돈내산", "왓츠인마이백", "애착템"]
 }
 
-SHOPPING_MODIFIERS = ["사복", "공항패션", "OOTD", "옷장공개", "착장정보", "왓츠인마이백", "애착템", "내돈내산", "추천템", "손민수", "파우치공개", "손민수템", "관리법", "메이크업"]
-
-def generate_search_queries(targets):
-    queries = []
-    for target in targets:
-        if target in ["공항패션", "내돈내산", "왓츠인마이백", "애착템"]:
-            queries.append(f"연예인 {target}")
-        else:
-            for modifier in SHOPPING_MODIFIERS:
-                queries.append(f"{target} {modifier}")
-    return queries
+# 연예인 쇼핑 쇼츠 전용 키워드 필터 목록
+SHOPPING_KEYWORDS = [
+    "착장", "패션", "사복", "공항패션", "OOTD", "옷장", "가방", "신발", "자켓", "립밤", "향수",
+    "왓츠인마이백", "애착템", "내돈내산", "추천", "손민수", "파우치", "관리법", "메이크업", "뷰티"
+]
 
 # 데이터 로드
 filename = "shorts_history.csv"
@@ -81,20 +76,28 @@ else:
     df = pd.DataFrame(dummy_data)
 
 if not df.empty:
+    # 연예인 쇼핑 쇼츠만 필터링 (쇼핑 키워드가 제목/키워드에 포함된 데이터만 노출)
+    shopping_pattern = "|".join(SHOPPING_KEYWORDS)
+    df = df[
+        df['title'].str.contains(shopping_pattern, case=False, na=False) |
+        df['keyword'].str.contains(shopping_pattern, case=False, na=False)
+    ].copy()
+
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
 
-    # 요약 통계
+    # 상단 요약 통계
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("총 수집 쇼츠", f"{len(df)}개")
     col2.metric("수집 키워드", f"{df['keyword'].nunique()}개")
-    top_view = df.sort_values(by="view_count", ascending=False).iloc[0]
-    col3.metric("최고 조회수", f"{top_view['view_count']/10000:.1f}만회")
-    col4.metric("최근 업데이트", df['timestamp'].max().strftime('%m/%d %H:%M'))
+    if not df.empty:
+        top_view = df.sort_values(by="view_count", ascending=False).iloc[0]
+        col3.metric("최고 조회수", f"{top_view['view_count']/10000:.1f}만회")
+        col4.metric("최근 업데이트", df['timestamp'].max().strftime('%m/%d %H:%M'))
 
     st.divider()
 
-    st.subheader("🔍 키워드 탐색 및 자동 수집 알고리즘")
+    st.subheader("🔍 연예인 쇼핑 키워드 탐색")
     
     filter_col1, filter_col2, filter_col3 = st.columns([1, 1, 1])
     
@@ -125,10 +128,10 @@ if not df.empty:
     if st.session_state.selected_chip:
         st.caption(f"현재 선택된 칩 필터: **#{st.session_state.selected_chip}**")
 
-    # 데이터 필터링 적용 (정확한 검색 로직 반영)
+    # 데이터 필터링 적용
     filtered_df = df.copy()
 
-    # 1. 칩 선택 필터링
+    # 1. 칩 필터링
     if st.session_state.selected_chip:
         filtered_df = filtered_df[
             (filtered_df['keyword'] == st.session_state.selected_chip) |
@@ -146,7 +149,7 @@ if not df.empty:
     if selected_sub != "전체":
         filtered_df = filtered_df[filtered_df['keyword'] == selected_sub]
 
-    # 4. 텍스트 직접 검색 필터링 (제목 및 채널명)
+    # 4. 직접 검색 필터링
     if search_query.strip():
         filtered_df = filtered_df[
             filtered_df['title'].str.contains(search_query, case=False, na=False) |
@@ -156,9 +159,9 @@ if not df.empty:
     sorted_df = filtered_df.sort_values(by="view_count", ascending=False)
 
     st.divider()
-    st.subheader(f"🔥 실시간 인기 쇼츠 ({len(sorted_df)}건)")
+    st.subheader(f"🔥 인기 연예인 쇼핑 쇼츠 ({len(sorted_df)}건)")
 
-    # 4열 모던 카드 그리드
+    # 4열 카드 그리드
     if not sorted_df.empty:
         cols_per_row = 4
         rows = [sorted_df.iloc[i:i+cols_per_row] for i in range(0, len(sorted_df), cols_per_row)]
@@ -188,6 +191,6 @@ if not df.empty:
                         </a>
                     """, unsafe_allow_html=True)
     else:
-        st.warning("조건에 맞는 쇼츠 데이터가 없습니다.")
+        st.warning("조건에 맞는 연예인 쇼핑 쇼츠가 없습니다.")
 else:
     st.info("데이터가 없습니다.")
