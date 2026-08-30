@@ -3,12 +3,12 @@ import pandas as pd
 import os
 
 st.set_page_config(
-    page_title="숏파! - Shorts Finder",
+    page_title="🔥 숏파! - Shorts Finder 🔥",
     layout="wide",
     page_icon="🔥"
 )
 
-# --- 트렌디한 모던 카드 UI 스타일링 ---
+# --- 스타일링 ---
 st.markdown("""
     <style>
     .stApp { background-color: #f8f9fa; }
@@ -40,10 +40,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 1. 메인 타이틀
+# 메인 타이틀
 st.title("🔥 숏파! - Shorts Finder 🔥")
 
-# 세션 상태 초기화 (칩 선택 상태 관리)
+# 세션 상태 초기화 (칩 선택 및 카테고리 상태)
 if "selected_chip" not in st.session_state:
     st.session_state.selected_chip = None
 
@@ -73,7 +73,7 @@ if not df.empty:
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
 
-    # 상단 요약 통계
+    # 요약 메트릭
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("총 수집 쇼츠", f"{len(df)}개")
     col2.metric("수집 키워드", f"{df['keyword'].nunique()}개")
@@ -100,7 +100,7 @@ if not df.empty:
     with filter_col3:
         search_query = st.text_input("제목 / 채널명 / 인물명 통합 검색", "", key="search_input")
 
-    # 태그형 칩(Chip) UI
+    # 퀵 트렌드 칩
     st.write("📌 **빠른 퀵 트렌드 칩 (Chip)**")
     chip_cols = st.columns(7)
     quick_chips = ["전체", "#장원영", "#카리나", "#프리지아", "#김나영", "#공항패션", "#내돈내산"]
@@ -114,46 +114,40 @@ if not df.empty:
     if st.session_state.selected_chip:
         st.caption(f"현재 선택된 칩 필터: **#{st.session_state.selected_chip}**")
 
-    # --- 통합 데이터 필터링 로직 ---
+    # --- 확실한 데이터 필터링 로직 ---
     filtered_df = df.copy()
 
-    # 1. 1차/2차 카테고리 선택 연동
+    # 1. [검색 대상 정의] 제목 + 키워드 + 채널명을 합친 통합 텍스트 열 생성
+    search_target_text = (
+        filtered_df['title'].astype(str) + " " + 
+        filtered_df['keyword'].astype(str) + " " + 
+        filtered_df['channel_title'].astype(str)
+    )
+
+    # 2. 2차 세부 인물 선택 시 최우선 필터링 (가장 강력)
     if selected_sub != "전체":
-        filtered_df = filtered_df[
-            (filtered_df['keyword'] == selected_sub) |
-            (filtered_df['title'].str.contains(selected_sub, case=False, na=False))
-        ]
+        filtered_df = filtered_df[search_target_text.str.contains(selected_sub, case=False, na=False)]
+    # 3. 1차 카테고리 선택 시 (2차는 '전체'일 때)
     elif selected_cat != "전체":
-        cat_targets = CATEGORY_STRUCTURE[selected_cat]
-        pattern = "|".join(cat_targets)
-        filtered_df = filtered_df[
-            (filtered_df['keyword'].isin(cat_targets)) |
-            (filtered_df['title'].str.contains(pattern, case=False, na=False))
-        ]
+        cat_keywords = CATEGORY_STRUCTURE[selected_cat]
+        pattern = "|".join(cat_keywords)
+        filtered_df = filtered_df[search_target_text.str.contains(pattern, case=False, na=False)]
 
-    # 2. 퀵 칩 선택 연동
+    # 4. 퀵 칩 버튼 선택 시 적용
     if st.session_state.selected_chip:
-        filtered_df = filtered_df[
-            (filtered_df['keyword'] == st.session_state.selected_chip) |
-            (filtered_df['title'].str.contains(st.session_state.selected_chip, case=False, na=False))
-        ]
+        filtered_df = filtered_df[search_target_text.str.contains(st.session_state.selected_chip, case=False, na=False)]
 
-    # 3. 직접 검색창 입력 연동 (제목, 채널명, 키워드 유연 매칭)
+    # 5. 검색창 직접 입력 시 적용
     if search_query.strip():
-        query = search_query.strip()
-        filtered_df = filtered_df[
-            filtered_df['title'].str.contains(query, case=False, na=False) |
-            filtered_df['channel_title'].str.contains(query, case=False, na=False) |
-            filtered_df['keyword'].str.contains(query, case=False, na=False)
-        ]
+        filtered_df = filtered_df[search_target_text.str.contains(search_query.strip(), case=False, na=False)]
 
-    # 4. 조회수 내림차순 정렬 (높은 조회수 순)
+    # 6. 조회수 내림차순 정렬 (항상 인기순 상단 노출)
     sorted_df = filtered_df.sort_values(by="view_count", ascending=False)
 
     st.divider()
     st.subheader(f"🔥 인기 연예인 쇼핑 쇼츠 ({len(sorted_df)}건)")
 
-    # 4열 카드 그리드 출력
+    # 4열 모던 카드 그리드 출력
     if not sorted_df.empty:
         cols_per_row = 4
         rows = [sorted_df.iloc[i:i+cols_per_row] for i in range(0, len(sorted_df), cols_per_row)]
