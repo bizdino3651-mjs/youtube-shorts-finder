@@ -3,15 +3,15 @@ import pandas as pd
 import os
 
 st.set_page_config(
-    page_title="유튜브 쇼츠 트렌드 대시보드",
+    page_title="유튜브 쇼츠 골든파인더 트렌드",
     layout="wide",
     page_icon="🎬"
 )
 
-# --- 트렌디한 모던 카드 UI 스타일링 ---
+# --- 트렌디한 모던 카드 및 태그 칩 UI 스타일링 ---
 st.markdown("""
     <style>
-    /* 전체 배경 및 폰트 세팅 */
+    /* 전체 배경 세팅 */
     .stApp {
         background-color: #f8f9fa;
     }
@@ -33,7 +33,6 @@ st.markdown("""
         border-color: #dee2e6;
     }
     
-    /* 썸네일 컨테이너: 원본 비율 유지 */
     .img-container {
         width: 100%;
         position: relative;
@@ -48,7 +47,6 @@ st.markdown("""
         object-fit: contain;
     }
     
-    /* 콘텐츠 영역 */
     .card-content {
         padding: 14px 16px;
     }
@@ -95,36 +93,117 @@ st.markdown("""
 
 st.title("🎬 유튜브 쇼츠 골든파인더 트렌드")
 
+# 1. 수집 카테고리 및 쇼핑 수식어 정보 정의
+CATEGORY_STRUCTURE = {
+    "🔥 인기 아이돌": ["장원영", "카리나", "안유진", "윈터"],
+    "💄 패션/뷰티 인플루언서": ["프리지아", "이사배"],
+    "⭐ 셀럽 / 라이프스타일": ["김나영", "강민경"],
+    "🛍️ 쇼핑 인텐트 (공통)": ["공항패션", "내돈내산", "왓츠인마이백", "애착템"]
+}
+
+SHOPPING_MODIFIERS = [
+    "사복", "공항패션", "OOTD", "옷장공개", "착장정보",
+    "왓츠인마이백", "애착템", "내돈내산", "추천템", "손민수",
+    "파우치공개", "손민수템", "관리법", "메이크업"
+]
+
+def generate_search_queries(targets):
+    """[인물명] + [쇼핑 수식어] 형태의 자동 수집 쿼리 생성 함수"""
+    queries = []
+    for target in targets:
+        if target in ["공항패션", "내돈내산", "왓츠인마이백", "애착템"]:
+            queries.append(f"연예인 {target}")
+        else:
+            for modifier in SHOPPING_MODIFIERS:
+                queries.append(f"{target} {modifier}")
+    return queries
+
+# 2. 데이터 불러오기 (CSV 유무에 따른 fallback 처리)
 filename = "shorts_history.csv"
 
 if os.path.exists(filename):
     df = pd.read_csv(filename)
-    
-    if not df.empty:
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
+else:
+    dummy_data = [
+        {"video_id": "3oA81c3yW48", "title": "[아이돌] 장원영 미우미우 가방 착장 정보 👜", "channel_title": "아이돌스케치", "view_count": 1200000, "keyword": "장원영", "category": "🔥 인기 아이돌", "timestamp": "2026-08-30 10:00:00"},
+        {"video_id": "6ZUIwj3YeUY", "title": "[아이돌] 카리나 성수동 팝업스토어 착장 모음 🔥", "channel_title": "OOTD모음", "view_count": 850000, "keyword": "카리나", "category": "🔥 인기 아이돌", "timestamp": "2026-08-30 11:00:00"},
+        {"video_id": "5v2U9U9U1Rk", "title": "[아이돌] 안유진 공항패션 자켓 어디꺼?", "channel_title": "패션인사이드", "view_count": 640000, "keyword": "안유진", "category": "🔥 인기 아이돌", "timestamp": "2026-08-30 09:30:00"},
+        {"video_id": "3oA81c3yW48", "title": "[인플루언서] 프리지아 최애 향수 & 파우치공개 💄", "channel_title": "뷰티파우치", "view_count": 920000, "keyword": "프리지아", "category": "💄 패션/뷰티 인플루언서", "timestamp": "2026-08-30 08:10:00"},
+        {"video_id": "6ZUIwj3YeUY", "title": "[셀럽] 김나영 노필터선물 내돈내산 패션 🛍️", "channel_title": "라이프스타일", "view_count": 510000, "keyword": "김나영", "category": "⭐ 셀럽 / 라이프스타일", "timestamp": "2026-08-30 07:40:00"},
+        {"video_id": "5v2U9U9U1Rk", "title": "[테마] 연예인 내돈내산 애착템 추천 🌟", "channel_title": "트렌드픽", "view_count": 1800000, "keyword": "내돈내산", "category": "🛍️ 쇼핑 인텐트 (공통)", "timestamp": "2026-08-30 06:10:00"}
+    ]
+    df = pd.DataFrame(dummy_data)
 
-    # 상단 요약 통계
+if not df.empty:
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
+
+    # 3. 상단 요약 통계
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("총 수집 쇼츠", f"{len(df)}개")
-    col2.metric("수집 키워드", f"{df['keyword'].nunique()}개" if not df.empty else "0개")
-    if not df.empty:
-        top_view = df.sort_values(by="view_count", ascending=False).iloc[0]
-        col3.metric("최고 조회수", f"{top_view['view_count']/10000:.1f}만회")
-        col4.metric("최근 업데이트", df['timestamp'].max().strftime('%m/%d %H:%M'))
+    col2.metric("수집 키워드", f"{df['keyword'].nunique()}개")
+    top_view = df.sort_values(by="view_count", ascending=False).iloc[0]
+    col3.metric("최고 조회수", f"{top_view['view_count']/10000:.1f}만회")
+    col4.metric("최근 업데이트", df['timestamp'].max().strftime('%m/%d %H:%M'))
 
     st.divider()
 
-    # 검색 및 필터
-    filter_col1, filter_col2 = st.columns(2)
+    # 4. 개편된 2단 필터링 및 검색 UI
+    st.subheader("🔍 키워드 탐색 및 자동 수집 알고리즘")
+    
+    filter_col1, filter_col2, filter_col3 = st.columns([1, 1, 1])
+    
     with filter_col1:
-        keywords = ["전체"] + (list(df['keyword'].unique()) if not df.empty else [])
-        selected_kw = st.selectbox("수집 키워드 선택", keywords)
+        cat_options = ["전체"] + list(CATEGORY_STRUCTURE.keys())
+        selected_cat = st.selectbox("1차 카테고리", cat_options)
         
     with filter_col2:
+        if selected_cat == "전체":
+            sub_options = ["전체"] + [item for sublist in CATEGORY_STRUCTURE.values() for item in sublist]
+        else:
+            sub_options = ["전체"] + CATEGORY_STRUCTURE[selected_cat]
+        selected_sub = st.selectbox("2차 세부 인물/테마", sub_options)
+
+    with filter_col3:
         search_query = st.text_input("제목 / 채널명 직접 검색", "")
 
-    filtered_df = df if selected_kw == "전체" else df[df['keyword'] == selected_kw]
+    # 5. 태그형 멀티 선택 (Chip UI 구현)
+    st.write("📌 **빠른 퀵 트렌드 칩 (Chip)**")
+    chip_cols = st.columns(6)
+    selected_chip = None
+    quick_chips = ["#장원영", "#카리나", "#프리지아", "#김나영", "#공항패션", "#내돈내산"]
+    
+    for idx, chip in enumerate(quick_chips):
+        with chip_cols[idx]:
+            if st.button(chip, key=f"chip_{idx}"):
+                selected_chip = chip.replace("#", "")
+
+    # 자동 생성된 수집 쿼리 안내
+    active_targets = []
+    if selected_sub != "전체":
+        active_targets = [selected_sub]
+    elif selected_cat != "전체":
+        active_targets = CATEGORY_STRUCTURE[selected_cat]
+    elif selected_chip:
+        active_targets = [selected_chip]
+
+    if active_targets:
+        generated_queries = generate_search_queries(active_targets)
+        st.info(f"💡 **유튜브 엔진 자동 조합 쿼리 예시 ({len(generated_queries)}개):** {', '.join(generated_queries[:5])} ...")
+
+    # 6. 데이터 필터링 적용
+    filtered_df = df.copy()
+
+    if selected_chip:
+        filtered_df = filtered_df[filtered_df['keyword'] == selected_chip]
+    else:
+        if selected_cat != "전체":
+            if 'category' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['category'] == selected_cat]
+            else:
+                filtered_df = filtered_df[filtered_df['keyword'].isin(CATEGORY_STRUCTURE[selected_cat])]
+        if selected_sub != "전체":
+            filtered_df = filtered_df[filtered_df['keyword'] == selected_sub]
 
     if search_query.strip():
         filtered_df = filtered_df[
@@ -134,9 +213,10 @@ if os.path.exists(filename):
 
     sorted_df = filtered_df.sort_values(by="view_count", ascending=False)
 
+    st.divider()
     st.subheader(f"🔥 실시간 인기 쇼츠 ({len(sorted_df)}건)")
 
-    # 4열 모던 카드 그리드
+    # 7. 4열 모던 카드 그리드
     if not sorted_df.empty:
         cols_per_row = 4
         rows = [sorted_df.iloc[i:i+cols_per_row] for i in range(0, len(sorted_df), cols_per_row)]
@@ -166,6 +246,6 @@ if os.path.exists(filename):
                         </a>
                     """, unsafe_allow_html=True)
     else:
-        st.warning("조건에 맞는 쇼츠가 없습니다.")
+        st.warning("조건에 맞는 쇼츠 데이터가 없습니다.")
 else:
     st.info("데이터가 없습니다.")
