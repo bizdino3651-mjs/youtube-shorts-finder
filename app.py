@@ -40,10 +40,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 1. 제목 변경 (불꽃 이모지 및 신규 서비스명 적용)
+# 1. 메인 타이틀
 st.title("🔥 숏파! - Shorts Finder 🔥")
 
-# 세션 상태 초기화 (칩 선택 상태 유지)
+# 세션 상태 초기화 (칩 선택 상태 관리)
 if "selected_chip" not in st.session_state:
     st.session_state.selected_chip = None
 
@@ -53,12 +53,6 @@ CATEGORY_STRUCTURE = {
     "⭐ 셀럽 / 라이프스타일": ["김나영", "강민경"],
     "🛍️ 쇼핑 인텐트 (공통)": ["공항패션", "내돈내산", "왓츠인마이백", "애착템"]
 }
-
-# 연예인 쇼핑 쇼츠 전용 키워드 필터 목록
-SHOPPING_KEYWORDS = [
-    "착장", "패션", "사복", "공항패션", "OOTD", "옷장", "가방", "신발", "자켓", "립밤", "향수",
-    "왓츠인마이백", "애착템", "내돈내산", "추천", "손민수", "파우치", "관리법", "메이크업", "뷰티"
-]
 
 # 데이터 로드
 filename = "shorts_history.csv"
@@ -76,13 +70,6 @@ else:
     df = pd.DataFrame(dummy_data)
 
 if not df.empty:
-    # 연예인 쇼핑 쇼츠만 필터링 (쇼핑 키워드가 제목/키워드에 포함된 데이터만 노출)
-    shopping_pattern = "|".join(SHOPPING_KEYWORDS)
-    df = df[
-        df['title'].str.contains(shopping_pattern, case=False, na=False) |
-        df['keyword'].str.contains(shopping_pattern, case=False, na=False)
-    ].copy()
-
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
 
@@ -90,10 +77,9 @@ if not df.empty:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("총 수집 쇼츠", f"{len(df)}개")
     col2.metric("수집 키워드", f"{df['keyword'].nunique()}개")
-    if not df.empty:
-        top_view = df.sort_values(by="view_count", ascending=False).iloc[0]
-        col3.metric("최고 조회수", f"{top_view['view_count']/10000:.1f}만회")
-        col4.metric("최근 업데이트", df['timestamp'].max().strftime('%m/%d %H:%M'))
+    top_view = df.sort_values(by="view_count", ascending=False).iloc[0]
+    col3.metric("최고 조회수", f"{top_view['view_count']/10000:.1f}만회")
+    col4.metric("최근 업데이트", df['timestamp'].max().strftime('%m/%d %H:%M'))
 
     st.divider()
 
@@ -112,7 +98,7 @@ if not df.empty:
         selected_sub = st.selectbox("2차 세부 인물/테마", sub_options, key="sub_select")
 
     with filter_col3:
-        search_query = st.text_input("제목 / 채널명 직접 검색", "", key="search_input")
+        search_query = st.text_input("제목 / 채널명 / 인물명 통합 검색", "", key="search_input")
 
     # 태그형 칩(Chip) UI
     st.write("📌 **빠른 퀵 트렌드 칩 (Chip)**")
@@ -128,40 +114,46 @@ if not df.empty:
     if st.session_state.selected_chip:
         st.caption(f"현재 선택된 칩 필터: **#{st.session_state.selected_chip}**")
 
-    # 데이터 필터링 적용
+    # --- 통합 데이터 필터링 로직 ---
     filtered_df = df.copy()
 
-    # 1. 칩 필터링
+    # 1. 1차/2차 카테고리 선택 연동
+    if selected_sub != "전체":
+        filtered_df = filtered_df[
+            (filtered_df['keyword'] == selected_sub) |
+            (filtered_df['title'].str.contains(selected_sub, case=False, na=False))
+        ]
+    elif selected_cat != "전체":
+        cat_targets = CATEGORY_STRUCTURE[selected_cat]
+        pattern = "|".join(cat_targets)
+        filtered_df = filtered_df[
+            (filtered_df['keyword'].isin(cat_targets)) |
+            (filtered_df['title'].str.contains(pattern, case=False, na=False))
+        ]
+
+    # 2. 퀵 칩 선택 연동
     if st.session_state.selected_chip:
         filtered_df = filtered_df[
             (filtered_df['keyword'] == st.session_state.selected_chip) |
             (filtered_df['title'].str.contains(st.session_state.selected_chip, case=False, na=False))
         ]
 
-    # 2. 1차 카테고리 필터링
-    if selected_cat != "전체":
-        if 'category' in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df['category'] == selected_cat]
-        else:
-            filtered_df = filtered_df[filtered_df['keyword'].isin(CATEGORY_STRUCTURE[selected_cat])]
-
-    # 3. 2차 세부 인물 필터링
-    if selected_sub != "전체":
-        filtered_df = filtered_df[filtered_df['keyword'] == selected_sub]
-
-    # 4. 직접 검색 필터링
+    # 3. 직접 검색창 입력 연동 (제목, 채널명, 키워드 유연 매칭)
     if search_query.strip():
+        query = search_query.strip()
         filtered_df = filtered_df[
-            filtered_df['title'].str.contains(search_query, case=False, na=False) |
-            filtered_df['channel_title'].str.contains(search_query, case=False, na=False)
+            filtered_df['title'].str.contains(query, case=False, na=False) |
+            filtered_df['channel_title'].str.contains(query, case=False, na=False) |
+            filtered_df['keyword'].str.contains(query, case=False, na=False)
         ]
 
+    # 4. 조회수 내림차순 정렬 (높은 조회수 순)
     sorted_df = filtered_df.sort_values(by="view_count", ascending=False)
 
     st.divider()
     st.subheader(f"🔥 인기 연예인 쇼핑 쇼츠 ({len(sorted_df)}건)")
 
-    # 4열 카드 그리드
+    # 4열 카드 그리드 출력
     if not sorted_df.empty:
         cols_per_row = 4
         rows = [sorted_df.iloc[i:i+cols_per_row] for i in range(0, len(sorted_df), cols_per_row)]
