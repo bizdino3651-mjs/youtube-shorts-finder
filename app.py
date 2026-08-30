@@ -1,171 +1,62 @@
 import streamlit as st
-import pandas as pd
-import os
 
-st.set_page_config(
-    page_title="유튜브 쇼츠 트렌드 대시보드",
-    layout="wide",
-    page_icon="🎬"
-)
+# 페이지 기본 설정
+st.set_page_config(page_title="유튜브 쇼핑 숏츠 수집기", layout="wide")
 
-# --- 트렌디한 모던 카드 UI 스타일링 ---
-st.markdown("""
-    <style>
-    /* 전체 배경 및 폰트 세팅 */
-    .stApp {
-        background-color: #f8f9fa;
-    }
-    
-    /* 모던 카드 디자인 */
-    .shorts-card {
-        background-color: #ffffff;
-        border-radius: 16px;
-        overflow: hidden;
-        border: 1px solid #e9ecef;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        transition: all 0.25s ease;
-        margin-bottom: 20px;
-    }
-    
-    .shorts-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1);
-        border-color: #dee2e6;
-    }
-    
-    /* 썸네일 컨테이너: 원본 비율 유지 */
-    .img-container {
-        width: 100%;
-        position: relative;
-        background-color: #000000;
-        overflow: hidden;
-    }
-    
-    .shorts-img {
-        width: 100%;
-        height: auto;
-        display: block;
-        object-fit: contain;
-    }
-    
-    /* 콘텐츠 영역 */
-    .card-content {
-        padding: 14px 16px;
-    }
-    
-    .card-title {
-        font-size: 14px;
-        font-weight: 700;
-        color: #212529;
-        line-height: 1.4;
-        height: 40px;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        margin-bottom: 10px;
-    }
-    
-    .card-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 12px;
-        color: #6c757d;
-    }
-    
-    .view-badge {
-        background-color: #fff0f1;
-        color: #ff0033;
-        font-weight: 700;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 11px;
-    }
-    
-    .channel-name {
-        font-weight: 500;
-        max-width: 110px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    </style>
-""", unsafe_allow_html=True)
+st.title("⚡ 유튜브 쇼핑 숏츠 수집기")
+st.caption("카테고리별 인물 및 쇼핑 키워드를 선택하여 숏츠 데이터를 수집하세요.")
 
-st.title("🎬 유튜브 쇼츠 골든파인더 트렌드")
+# 1. 카테고리별 키워드 데이터 정의
+CATEGORY_DATA = {
+    "🔥 인기 아이돌": ["장원영", "카리나", "안유진", "윈터"],
+    "💄 패션/뷰티 인플루언서": ["프리지아", "이사배"],
+    "⭐ 셀럽 / 라이프스타일": ["김나영", "강민경"],
+    "🛍️ 쇼핑 테마 키워드": ["공항패션", "내돈내산", "왓츠인마이백"]
+}
 
-filename = "shorts_history.csv"
+# 세션 상태 초기화 (선택된 태그 저장용)
+if "selected_tags" not in st.session_state:
+    st.session_state.selected_tags = []
 
-if os.path.exists(filename):
-    df = pd.read_csv(filename)
-    
-    if not df.empty:
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
+# 2. UI 레이아웃 구성
+col1, col2 = st.columns([1, 1])
 
-    # 상단 요약 통계
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("총 수집 쇼츠", f"{len(df)}개")
-    col2.metric("수집 키워드", f"{df['keyword'].nunique()}개" if not df.empty else "0개")
-    if not df.empty:
-        top_view = df.sort_values(by="view_count", ascending=False).iloc[0]
-        col3.metric("최고 조회수", f"{top_view['view_count']/10000:.1f}만회")
-        col4.metric("최근 업데이트", df['timestamp'].max().strftime('%m/%d %H:%M'))
+with col1:
+    st.subheader("1. 수집 카테고리 선택")
+    # 카테고리 드롭다운
+    selected_category = st.selectbox(
+        "카테고리를 선택하세요",
+        options=list(CATEGORY_DATA.keys())
+    )
 
-    st.divider()
+with col2:
+    st.subheader("2. 세부 대상/키워드 선택")
+    # 선택한 카테고리에 맞는 세부 항목 드롭다운 (멀티 선택 가능)
+    available_options = CATEGORY_DATA[selected_category]
+    selected_items = st.multiselect(
+        "수집할 인물 또는 키워드를 선택하세요 (다중 선택 가능)",
+        options=available_options,
+        default=[]
+    )
 
-    # 검색 및 필터
-    filter_col1, filter_col2 = st.columns(2)
-    with filter_col1:
-        keywords = ["전체"] + (list(df['keyword'].unique()) if not df.empty else [])
-        selected_kw = st.selectbox("수집 키워드 선택", keywords)
+# 3. 직접 입력 영역
+st.divider()
+direct_input = st.text_input("검색어 직접 입력 (선택 사항)", placeholder="예: 아이브 사복, 에스파 메이크업")
+
+# 4. 수집 실행 버튼 및 파라미터 전달
+st.divider()
+
+if st.button("🚀 선택한 키워드로 수집 시작", type="primary"):
+    # 최종 수집 대상 리스트 정리
+    final_keywords = list(selected_items)
+    if direct_input.strip():
+        final_keywords.append(direct_input.strip())
         
-    with filter_col2:
-        search_query = st.text_input("제목 / 채널명 직접 검색", "")
-
-    filtered_df = df if selected_kw == "전체" else df[df['keyword'] == selected_kw]
-
-    if search_query.strip():
-        filtered_df = filtered_df[
-            filtered_df['title'].str.contains(search_query, case=False, na=False) |
-            filtered_df['channel_title'].str.contains(search_query, case=False, na=False)
-        ]
-
-    sorted_df = filtered_df.sort_values(by="view_count", ascending=False)
-
-    st.subheader(f"🔥 실시간 인기 쇼츠 ({len(sorted_df)}건)")
-
-    # 4열 모던 카드 그리드
-    if not sorted_df.empty:
-        cols_per_row = 4
-        rows = [sorted_df.iloc[i:i+cols_per_row] for i in range(0, len(sorted_df), cols_per_row)]
-
-        for row in rows:
-            grid_cols = st.columns(cols_per_row)
-            for idx, (_, item) in enumerate(row.iterrows()):
-                with grid_cols[idx]:
-                    video_url = f"https://www.youtube.com/shorts/{item['video_id']}"
-                    views_count = item['view_count']
-                    views_formatted = f"{views_count/10000:.1f}만회" if views_count >= 10000 else f"{views_count:,}회"
-                    
-                    st.markdown(f"""
-                        <a href="{video_url}" target="_blank" style="text-decoration: none;">
-                            <div class="shorts-card">
-                                <div class="img-container">
-                                    <img src="{item['thumbnail_url']}" class="shorts-img" alt="{item['title']}">
-                                </div>
-                                <div class="card-content">
-                                    <div class="card-title">{item['title']}</div>
-                                    <div class="card-info">
-                                        <span class="channel-name">@{item['channel_title']}</span>
-                                        <span class="view-badge">👀 {views_formatted}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    """, unsafe_allow_html=True)
+    if not final_keywords:
+        st.warning("수집할 키워드를 하나 이상 선택하거나 입력해주세요.")
     else:
-        st.warning("조건에 맞는 쇼츠가 없습니다.")
-else:
-    st.info("데이터가 없습니다.")
+        st.success(f"수집을 시작합니다! 선택된 키워드: **{', '.join(final_keywords)}**")
+        
+        # TODO: collect.py의 수집 함수 호출 부분
+        # import collect
+        # collect.run_collection(final_keywords)
