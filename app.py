@@ -76,7 +76,7 @@ st.markdown("""
         color: #333333;
     }
     </style>
-""", unsafe_allow_stdio=True)
+""", unsafe_allow_html=True)
 
 st.title("🎬 유튜브 쇼츠 골든파인더 트렌드")
 
@@ -158,7 +158,7 @@ if os.path.exists(filename):
                                 </div>
                             </div>
                         </a>
-                    """, unsafe_allow_stdio=True)
+                    """, unsafe_allow_html=True)
     else:
         st.warning("검색 조건에 맞는 쇼츠 영상이 없습니다.")
 
