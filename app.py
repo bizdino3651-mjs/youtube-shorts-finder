@@ -8,7 +8,7 @@ st.set_page_config(
     page_icon="🎬"
 )
 
-# --- CSS 스타일링 (위아래 까만 레터박스 완전 제거 및 반응형 5열 그리드) ---
+# --- CSS 스타일링 (검은 여백 완벽 제거 및 가운데 쇼츠 화면만 꽉 채우기) ---
 st.markdown("""
     <style>
     /* 카드 전체 레이아웃 (유튜브 Shorts UI 스타일) */
@@ -25,7 +25,7 @@ st.markdown("""
         transform: translateY(-4px);
     }
     
-    /* 9:16 비율 세로 썸네일 컨테이너 */
+    /* 9:16 비율 세로 썸네일 프레임 (모서리 둥글게) */
     .card-img-wrapper {
         width: 100%;
         aspect-ratio: 9 / 16;
@@ -36,17 +36,18 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     
-    /* 💥 까만 여백 제거 핵심: scale(1.8)로 이미지를 크게 확대하여 까만 레터박스를 프레임 밖으로 완전히 밀어냄 */
+    /* 💥 마법의 CSS: 검은 여백을 프레임 밖으로 완전히 잘라내고 가운데 쇼츠만 꽉 채우기 */
     .card-img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         object-position: center center;
-        transform: scale(1.8); /* 1.35에서 1.8로 확대율 상향 */
+        /* 유튜브 썸네일 특유의 좌우/위아래 검은 레터박스를 정밀하게 크롭하여 밀어냄 */
+        transform: scaleX(3.1) scaleY(1.75);
         display: block;
     }
     
-    /* 카드 하단 정보 영역 (유튜브 스타일) */
+    /* 카드 하단 정보 영역 */
     .card-body {
         padding-top: 10px;
     }
@@ -56,7 +57,7 @@ st.markdown("""
         font-weight: 600;
         color: #0f0f0f;
         display: -webkit-box;
-        -webkit-line-clamp: 2; /* 두 줄까지 표시 */
+        -webkit-line-clamp: 2; /* 2줄까지만 표시 */
         -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -75,15 +76,7 @@ st.markdown("""
     
     .card-views {
         font-weight: 400;
-    }
-    
-    .card-channel {
-        font-weight: 500;
-        color: #0f0f0f;
-        max-width: 65%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        color: #606060;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -93,15 +86,12 @@ st.title("🎬 유튜브 쇼츠 골든파인더 트렌드")
 filename = "shorts_history.csv"
 
 if os.path.exists(filename):
-    # 데이터 불러오기 (데이터프레임)
     df = pd.read_csv(filename)
     
     if not df.empty:
-        # 데이터 전처리: timestamp 형식 변환 및 고화질 썸네일 URL 생성
         df['timestamp'] = pd.to_datetime(df['timestamp'])
-        
-        # 유튜브 maxresdefault.jpg 주소 사용
-        df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/maxresdefault.jpg")
+        # 썸네일 기본 주소 생성
+        df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
 
     # --- 1. 통계 요약 (상단 대시보드) ---
     col1, col2, col3, col4 = st.columns(4)
@@ -114,18 +104,15 @@ if os.path.exists(filename):
 
     st.divider()
 
-    # --- 2. 수집 키워드 선택 및 제목/채널명 직접 검색 ---
+    # --- 2. 검색 및 필터 ---
     filter_col1, filter_col2 = st.columns(2)
     with filter_col1:
-        # 키워드 필터 (드롭다운)
         keywords = ["전체"] + (list(df['keyword'].unique()) if not df.empty else [])
         selected_kw = st.selectbox("수집 키워드 선택", keywords)
         
     with filter_col2:
-        # 제목/채널명 검색 (직접 입력)
         search_query = st.text_input("제목 / 채널명 직접 검색", "")
 
-    # 데이터 필터링 로직
     filtered_df = df if selected_kw == "전체" else df[df['keyword'] == selected_kw]
 
     if search_query.strip():
@@ -134,32 +121,28 @@ if os.path.exists(filename):
             filtered_df['channel_title'].str.contains(search_query, case=False, na=False)
         ]
 
-    # 조회수 높은 순서 정렬
     sorted_df = filtered_df.sort_values(by="view_count", ascending=False)
 
     st.subheader(f"🔥 인기 쇼츠 그리드 ({len(sorted_df)}건)")
 
-    # --- 3. 반응형 5열 그리드 구현 (유튜브 웹 UI 방식) ---
+    # --- 3. 5열 반응형 그리드 ---
     if not sorted_df.empty:
-        # 데이터를 5개씩 나누기
         cols_per_row = 5
         rows = [sorted_df.iloc[i:i+cols_per_row] for i in range(0, len(sorted_df), cols_per_row)]
 
-        # 나눈 데이터를 5열 그리드로 배치
         for row in rows:
             grid_cols = st.columns(cols_per_row)
             for idx, (_, item) in enumerate(row.iterrows()):
                 with grid_cols[idx]:
                     video_url = f"https://www.youtube.com/shorts/{item['video_id']}"
                     
-                    # 조회수 단위 표기 (만 단위)
+                    # 조회수 단위 표기 (조회수 OO만회)
                     views_count = item['view_count']
                     if views_count >= 10000:
                         views_formatted = f"조회수 {views_count/10000:.1f}만회"
                     else:
                         views_formatted = f"조회수 {views_count:,}회"
                     
-                    # HTML 카드로 세로형 썸네일 그리드 표시 (가운데 쇼츠 확대 적용)
                     st.markdown(f"""
                         <a href="{video_url}" target="_blank" style="text-decoration: none;">
                             <div class="card">
@@ -179,4 +162,4 @@ if os.path.exists(filename):
         st.warning("검색 조건에 맞는 쇼츠 영상이 없습니다.")
 
 else:
-    st.info("아직 수집된 데이터(shorts_history.csv)가 없습니다. GitHub Actions 실행 후 확인해 주세요.")
+    st.info("아직 수집된 데이터(shorts_history.csv)가 없습니다.")
