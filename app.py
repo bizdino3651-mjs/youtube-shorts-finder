@@ -1,98 +1,171 @@
 import streamlit as st
+import pandas as pd
+import os
 
-st.set_page_config(page_title="유튜브 쇼핑 숏츠 수집기", layout="wide")
+st.set_page_config(
+    page_title="유튜브 쇼츠 트렌드 대시보드",
+    layout="wide",
+    page_icon="🎬"
+)
 
-st.title("⚡ 유튜브 쇼핑 숏츠 수집기")
-st.caption("카테고리별 인물 및 쇼핑 키워드를 선택하여 숏츠 데이터를 수집하세요.")
-
-# 1. 카테고리 데이터
-CATEGORY_DATA = {
-    "🔥 인기 아이돌": ["장원영", "카리나", "안유진", "윈터"],
-    "💄 패션/뷰티 인플루언서": ["프리지아", "이사배"],
-    "⭐ 셀럽 / 라이프스타일": ["김나영", "강민경"],
-    "🛍️ 쇼핑 테마 키워드": ["공항패션", "내돈내산", "왓츠인마이백"]
-}
-
-# 2. 쇼핑 수식어 패턴 정의 (수집 로직 백엔드)
-SHOPPING_MODIFIERS = [
-    "사복", "공항패션", "OOTD", "왓츠인마이백", 
-    "내돈내산", "추천템", "손민수", "파우치공개", "관리법"
-]
-
-def generate_search_queries(selected_targets):
-    """선택된 인물/테마와 쇼핑 수식어를 결합하여 유튜브 검색 쿼리를 자동 생성합니다."""
-    search_queries = []
-    for target in selected_targets:
-        if target in ["공항패션", "내돈내산", "왓츠인마이백"]:
-            search_queries.append(f"연예인 {target} 숏츠")
-        else:
-            for modifier in SHOPPING_MODIFIERS:
-                search_queries.append(f"{target} {modifier}")
-    return search_queries
-
-# 3. 데이터베이스 (재생 가능한 유튜브 영상 ID 적용)
-INITIAL_SHORTS = [
-    {"title": "장원영 미우미우 가방 착장 정보 👜", "views": "1.2M", "video_id": "3oA81c3yW48", "keyword": "장원영"},
-    {"title": "카리나 성수동 팝업스토어 착장 모음 🔥", "views": "850K", "video_id": "6ZUIwj3YeUY", "keyword": "카리나"},
-    {"title": "안유진 공항패션 자켓 어디꺼?", "views": "640K", "video_id": "5v2U9U9U1Rk", "keyword": "안유진"},
-    {"title": "윈터 왓츠인마이백 속 립밤 정보 💄", "views": "920K", "video_id": "3oA81c3yW48", "keyword": "윈터"},
-    {"title": "장원영 손민수템 렌즈 & 메이크업", "views": "1.5M", "video_id": "6ZUIwj3YeUY", "keyword": "장원영"},
-    {"title": "카리나 공항 사복 실물 느낌 OOTD", "views": "2.1M", "video_id": "5v2U9U9U1Rk", "keyword": "카리나"},
-    {"title": "안유진 펜디 드레스 추천템", "views": "430K", "video_id": "3oA81c3yW48", "keyword": "안유진"},
-    {"title": "프리지아 최애 향수 & 파우치공개", "views": "770K", "video_id": "6ZUIwj3YeUY", "keyword": "프리지아"},
-    {"title": "김나영 노필터선물 내돈내산 패션", "views": "510K", "video_id": "5v2U9U9U1Rk", "keyword": "김나영"},
-    {"title": "강민경 사복 인테리어 관리법", "views": "890K", "video_id": "3oA81c3yW48", "keyword": "강민경"},
-    {"title": "아이돌 공항패션 레전드 모음 ✈️", "views": "3.1M", "video_id": "6ZUIwj3YeUY", "keyword": "공항패션"},
-    {"title": "연예인 내돈내산 애착템 추천 🛍️", "views": "1.8M", "video_id": "5v2U9U9U1Rk", "keyword": "내돈내산"}
-]
-
-# 4. UI 구성 (상단 레이아웃)
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    selected_category = st.selectbox("수집 카테고리 선택", options=list(CATEGORY_DATA.keys()))
-
-with col2:
-    selected_items = st.multiselect("수집 대상/키워드 선택 (다중 선택 가능)", options=CATEGORY_DATA[selected_category])
-
-direct_input = st.text_input("검색어 직접 입력 (선택 사항)", placeholder="예: 아이유 최애템")
-search_clicked = st.button("🚀 선택한 키워드로 검색/수집", type="primary")
-
-st.divider()
-
-# 5. 검색 및 키워드 생성 로직
-user_selected = list(selected_items)
-if direct_input.strip():
-    user_selected.append(direct_input.strip())
-
-generated_queries = generate_search_queries(user_selected) if user_selected else []
-
-if generated_queries:
-    st.subheader(f"🔍 생성된 수집 쿼리 ({len(generated_queries)}개)")
-    st.info(f"💡 **자동 생성 쿼리:** {', '.join(generated_queries[:5])} ...")
+# --- 트렌디한 모던 카드 UI 스타일링 ---
+st.markdown("""
+    <style>
+    /* 전체 배경 및 폰트 세팅 */
+    .stApp {
+        background-color: #f8f9fa;
+    }
     
-    # 필터링 로직
-    display_list = [
-        item for item in INITIAL_SHORTS 
-        if item['keyword'] in user_selected or any(kw in item['title'] for kw in user_selected)
-    ]
-    if not display_list:
-        display_list = INITIAL_SHORTS
+    /* 모던 카드 디자인 */
+    .shorts-card {
+        background-color: #ffffff;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transition: all 0.25s ease;
+        margin-bottom: 20px;
+    }
+    
+    .shorts-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1);
+        border-color: #dee2e6;
+    }
+    
+    /* 썸네일 컨테이너: 원본 비율 유지 */
+    .img-container {
+        width: 100%;
+        position: relative;
+        background-color: #000000;
+        overflow: hidden;
+    }
+    
+    .shorts-img {
+        width: 100%;
+        height: auto;
+        display: block;
+        object-fit: contain;
+    }
+    
+    /* 콘텐츠 영역 */
+    .card-content {
+        padding: 14px 16px;
+    }
+    
+    .card-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #212529;
+        line-height: 1.4;
+        height: 40px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+    
+    .card-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    .view-badge {
+        background-color: #fff0f1;
+        color: #ff0033;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+    }
+    
+    .channel-name {
+        font-weight: 500;
+        max-width: 110px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("🎬 유튜브 쇼츠 골든파인더 트렌드")
+
+filename = "shorts_history.csv"
+
+if os.path.exists(filename):
+    df = pd.read_csv(filename)
+    
+    if not df.empty:
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
+
+    # 상단 요약 통계
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("총 수집 쇼츠", f"{len(df)}개")
+    col2.metric("수집 키워드", f"{df['keyword'].nunique()}개" if not df.empty else "0개")
+    if not df.empty:
+        top_view = df.sort_values(by="view_count", ascending=False).iloc[0]
+        col3.metric("최고 조회수", f"{top_view['view_count']/10000:.1f}만회")
+        col4.metric("최근 업데이트", df['timestamp'].max().strftime('%m/%d %H:%M'))
+
+    st.divider()
+
+    # 검색 및 필터
+    filter_col1, filter_col2 = st.columns(2)
+    with filter_col1:
+        keywords = ["전체"] + (list(df['keyword'].unique()) if not df.empty else [])
+        selected_kw = st.selectbox("수집 키워드 선택", keywords)
+        
+    with filter_col2:
+        search_query = st.text_input("제목 / 채널명 직접 검색", "")
+
+    filtered_df = df if selected_kw == "전체" else df[df['keyword'] == selected_kw]
+
+    if search_query.strip():
+        filtered_df = filtered_df[
+            filtered_df['title'].str.contains(search_query, case=False, na=False) |
+            filtered_df['channel_title'].str.contains(search_query, case=False, na=False)
+        ]
+
+    sorted_df = filtered_df.sort_values(by="view_count", ascending=False)
+
+    st.subheader(f"🔥 실시간 인기 쇼츠 ({len(sorted_df)}건)")
+
+    # 4열 모던 카드 그리드
+    if not sorted_df.empty:
+        cols_per_row = 4
+        rows = [sorted_df.iloc[i:i+cols_per_row] for i in range(0, len(sorted_df), cols_per_row)]
+
+        for row in rows:
+            grid_cols = st.columns(cols_per_row)
+            for idx, (_, item) in enumerate(row.iterrows()):
+                with grid_cols[idx]:
+                    video_url = f"https://www.youtube.com/shorts/{item['video_id']}"
+                    views_count = item['view_count']
+                    views_formatted = f"{views_count/10000:.1f}만회" if views_count >= 10000 else f"{views_count:,}회"
+                    
+                    st.markdown(f"""
+                        <a href="{video_url}" target="_blank" style="text-decoration: none;">
+                            <div class="shorts-card">
+                                <div class="img-container">
+                                    <img src="{item['thumbnail_url']}" class="shorts-img" alt="{item['title']}">
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-title">{item['title']}</div>
+                                    <div class="card-info">
+                                        <span class="channel-name">@{item['channel_title']}</span>
+                                        <span class="view-badge">👀 {views_formatted}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    """, unsafe_allow_html=True)
+    else:
+        st.warning("조건에 맞는 쇼츠가 없습니다.")
 else:
-    st.subheader("🔥 실시간 핫한 쇼핑 숏츠 (TOP 12)")
-    display_list = INITIAL_SHORTS
-
-# 6. 위치 및 영상 문제 해결용 그리드 출력 (카드를 하나씩 바운딩)
-GRID_COLUMNS = 3
-cols = st.columns(GRID_COLUMNS)
-
-for idx, item in enumerate(display_list):
-    col_idx = idx % GRID_COLUMNS
-    with cols[col_idx]:
-        # 카드 전체를 하나로 묶기 위한 container
-        with st.container(border=True):
-            # 표준 watch 주소를 이용해 영상 재생 문제 해결
-            embed_url = f"https://www.youtube.com/watch?v={item['video_id']}"
-            st.video(embed_url)
-            st.markdown(f"**{item['title']}**")
-            st.caption(f"👀 조회수: {item['views']}")
+    st.info("데이터가 없습니다.")
