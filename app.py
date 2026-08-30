@@ -8,15 +8,10 @@ st.set_page_config(
     page_icon="🎬"
 )
 
-# --- 트렌디한 모던 카드 및 태그 칩 UI 스타일링 ---
+# --- 스타일링 ---
 st.markdown("""
     <style>
-    /* 전체 배경 세팅 */
-    .stApp {
-        background-color: #f8f9fa;
-    }
-    
-    /* 모던 카드 디자인 */
+    .stApp { background-color: #f8f9fa; }
     .shorts-card {
         background-color: #ffffff;
         border-radius: 16px;
@@ -26,74 +21,31 @@ st.markdown("""
         transition: all 0.25s ease;
         margin-bottom: 20px;
     }
-    
     .shorts-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1);
         border-color: #dee2e6;
     }
-    
-    .img-container {
-        width: 100%;
-        position: relative;
-        background-color: #000000;
-        overflow: hidden;
-    }
-    
-    .shorts-img {
-        width: 100%;
-        height: auto;
-        display: block;
-        object-fit: contain;
-    }
-    
-    .card-content {
-        padding: 14px 16px;
-    }
-    
+    .img-container { width: 100%; position: relative; background-color: #000; overflow: hidden; }
+    .shorts-img { width: 100%; height: auto; display: block; object-fit: contain; }
+    .card-content { padding: 14px 16px; }
     .card-title {
-        font-size: 14px;
-        font-weight: 700;
-        color: #212529;
-        line-height: 1.4;
-        height: 40px;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        margin-bottom: 10px;
+        font-size: 14px; font-weight: 700; color: #212529; line-height: 1.4;
+        height: 40px; display: -webkit-box; -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 10px;
     }
-    
-    .card-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 12px;
-        color: #6c757d;
-    }
-    
-    .view-badge {
-        background-color: #fff0f1;
-        color: #ff0033;
-        font-weight: 700;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 11px;
-    }
-    
-    .channel-name {
-        font-weight: 500;
-        max-width: 110px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+    .card-info { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #6c757d; }
+    .view-badge { background-color: #fff0f1; color: #ff0033; font-weight: 700; padding: 4px 8px; border-radius: 6px; font-size: 11px; }
+    .channel-name { font-weight: 500; max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("🎬 유튜브 쇼츠 골든파인더 트렌드")
 
-# 1. 수집 카테고리 및 쇼핑 수식어 정보 정의
+# 세션 상태 초기화 (검색 및 칩 선택 상태 유지)
+if "selected_chip" not in st.session_state:
+    st.session_state.selected_chip = None
+
 CATEGORY_STRUCTURE = {
     "🔥 인기 아이돌": ["장원영", "카리나", "안유진", "윈터"],
     "💄 패션/뷰티 인플루언서": ["프리지아", "이사배"],
@@ -101,14 +53,9 @@ CATEGORY_STRUCTURE = {
     "🛍️ 쇼핑 인텐트 (공통)": ["공항패션", "내돈내산", "왓츠인마이백", "애착템"]
 }
 
-SHOPPING_MODIFIERS = [
-    "사복", "공항패션", "OOTD", "옷장공개", "착장정보",
-    "왓츠인마이백", "애착템", "내돈내산", "추천템", "손민수",
-    "파우치공개", "손민수템", "관리법", "메이크업"
-]
+SHOPPING_MODIFIERS = ["사복", "공항패션", "OOTD", "옷장공개", "착장정보", "왓츠인마이백", "애착템", "내돈내산", "추천템", "손민수", "파우치공개", "손민수템", "관리법", "메이크업"]
 
 def generate_search_queries(targets):
-    """[인물명] + [쇼핑 수식어] 형태의 자동 수집 쿼리 생성 함수"""
     queries = []
     for target in targets:
         if target in ["공항패션", "내돈내산", "왓츠인마이백", "애착템"]:
@@ -118,9 +65,8 @@ def generate_search_queries(targets):
                 queries.append(f"{target} {modifier}")
     return queries
 
-# 2. 데이터 불러오기 (CSV 유무에 따른 fallback 처리)
+# 데이터 로드
 filename = "shorts_history.csv"
-
 if os.path.exists(filename):
     df = pd.read_csv(filename)
 else:
@@ -138,7 +84,7 @@ if not df.empty:
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
 
-    # 3. 상단 요약 통계
+    # 요약 통계
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("총 수집 쇼츠", f"{len(df)}개")
     col2.metric("수집 키워드", f"{df['keyword'].nunique()}개")
@@ -148,63 +94,59 @@ if not df.empty:
 
     st.divider()
 
-    # 4. 개편된 2단 필터링 및 검색 UI
     st.subheader("🔍 키워드 탐색 및 자동 수집 알고리즘")
     
     filter_col1, filter_col2, filter_col3 = st.columns([1, 1, 1])
     
     with filter_col1:
-        cat_options = ["전체"] + list(CATEGORY_STRUCTURE.keys())
-        selected_cat = st.selectbox("1차 카테고리", cat_options)
+        selected_cat = st.selectbox("1차 카테고리", ["전체"] + list(CATEGORY_STRUCTURE.keys()), key="cat_select")
         
     with filter_col2:
         if selected_cat == "전체":
             sub_options = ["전체"] + [item for sublist in CATEGORY_STRUCTURE.values() for item in sublist]
         else:
             sub_options = ["전체"] + CATEGORY_STRUCTURE[selected_cat]
-        selected_sub = st.selectbox("2차 세부 인물/테마", sub_options)
+        selected_sub = st.selectbox("2차 세부 인물/테마", sub_options, key="sub_select")
 
     with filter_col3:
-        search_query = st.text_input("제목 / 채널명 직접 검색", "")
+        search_query = st.text_input("제목 / 채널명 직접 검색", "", key="search_input")
 
-    # 5. 태그형 멀티 선택 (Chip UI 구현)
+    # 태그형 칩(Chip) UI
     st.write("📌 **빠른 퀵 트렌드 칩 (Chip)**")
-    chip_cols = st.columns(6)
-    selected_chip = None
-    quick_chips = ["#장원영", "#카리나", "#프리지아", "#김나영", "#공항패션", "#내돈내산"]
+    chip_cols = st.columns(7)
+    quick_chips = ["전체", "#장원영", "#카리나", "#프리지아", "#김나영", "#공항패션", "#내돈내산"]
     
     for idx, chip in enumerate(quick_chips):
         with chip_cols[idx]:
-            if st.button(chip, key=f"chip_{idx}"):
-                selected_chip = chip.replace("#", "")
+            label = chip if chip != "전체" else "🔄 전체보기"
+            if st.button(label, key=f"chip_btn_{idx}"):
+                st.session_state.selected_chip = None if chip == "전체" else chip.replace("#", "")
 
-    # 자동 생성된 수집 쿼리 안내
-    active_targets = []
-    if selected_sub != "전체":
-        active_targets = [selected_sub]
-    elif selected_cat != "전체":
-        active_targets = CATEGORY_STRUCTURE[selected_cat]
-    elif selected_chip:
-        active_targets = [selected_chip]
+    if st.session_state.selected_chip:
+        st.caption(f"현재 선택된 칩 필터: **#{st.session_state.selected_chip}**")
 
-    if active_targets:
-        generated_queries = generate_search_queries(active_targets)
-        st.info(f"💡 **유튜브 엔진 자동 조합 쿼리 예시 ({len(generated_queries)}개):** {', '.join(generated_queries[:5])} ...")
-
-    # 6. 데이터 필터링 적용
+    # 데이터 필터링 적용 (정확한 검색 로직 반영)
     filtered_df = df.copy()
 
-    if selected_chip:
-        filtered_df = filtered_df[filtered_df['keyword'] == selected_chip]
-    else:
-        if selected_cat != "전체":
-            if 'category' in filtered_df.columns:
-                filtered_df = filtered_df[filtered_df['category'] == selected_cat]
-            else:
-                filtered_df = filtered_df[filtered_df['keyword'].isin(CATEGORY_STRUCTURE[selected_cat])]
-        if selected_sub != "전체":
-            filtered_df = filtered_df[filtered_df['keyword'] == selected_sub]
+    # 1. 칩 선택 필터링
+    if st.session_state.selected_chip:
+        filtered_df = filtered_df[
+            (filtered_df['keyword'] == st.session_state.selected_chip) |
+            (filtered_df['title'].str.contains(st.session_state.selected_chip, case=False, na=False))
+        ]
 
+    # 2. 1차 카테고리 필터링
+    if selected_cat != "전체":
+        if 'category' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['category'] == selected_cat]
+        else:
+            filtered_df = filtered_df[filtered_df['keyword'].isin(CATEGORY_STRUCTURE[selected_cat])]
+
+    # 3. 2차 세부 인물 필터링
+    if selected_sub != "전체":
+        filtered_df = filtered_df[filtered_df['keyword'] == selected_sub]
+
+    # 4. 텍스트 직접 검색 필터링 (제목 및 채널명)
     if search_query.strip():
         filtered_df = filtered_df[
             filtered_df['title'].str.contains(search_query, case=False, na=False) |
@@ -216,7 +158,7 @@ if not df.empty:
     st.divider()
     st.subheader(f"🔥 실시간 인기 쇼츠 ({len(sorted_df)}건)")
 
-    # 7. 4열 모던 카드 그리드
+    # 4열 모던 카드 그리드
     if not sorted_df.empty:
         cols_per_row = 4
         rows = [sorted_df.iloc[i:i+cols_per_row] for i in range(0, len(sorted_df), cols_per_row)]
