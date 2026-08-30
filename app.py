@@ -8,7 +8,7 @@ st.set_page_config(
     page_icon="🎬"
 )
 
-# --- 골든파인더 스타일 CSS (세로형 9:16 비율 및 반응형 그리드) ---
+# --- CSS 스타일링 (검은 여백 제거 및 가운데 쇼츠 화면 크롭 확대) ---
 st.markdown("""
     <style>
     /* 카드 전체 레이아웃 */
@@ -25,7 +25,7 @@ st.markdown("""
         transform: translateY(-6px);
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
     }
-    /* 9:16 세로 비율 썸네일 */
+    /* 9:16 세로 비율 썸네일 컨테이너 */
     .card-img-wrapper {
         width: 100%;
         aspect-ratio: 9 / 16;
@@ -33,10 +33,13 @@ st.markdown("""
         background-color: #000000;
         position: relative;
     }
+    /* 검은 레터박스 여백을 제거하고 가운데 쇼츠 영상 부분만 확대 크롭 */
     .card-img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        object-position: center center;
+        transform: scale(1.35); /* 검은색 위아래 레터박스를 밀어내고 중앙 화면 확대 */
         display: block;
     }
     /* 카드 텍스트 정보 영역 */
@@ -87,7 +90,7 @@ if os.path.exists(filename):
     
     if not df.empty:
         df['timestamp'] = pd.to_datetime(df['timestamp'])
-        # 세로형 9:16 크롭용 high quality 썸네일 URL 지정
+        # 고화질 썸네일 주소 사용 (hqdefault/sddefault 중 선명한 해상도 연동)
         df['thumbnail_url'] = df['video_id'].apply(lambda x: f"https://img.youtube.com/vi/{x}/hqdefault.jpg")
 
     # --- 1. 통계 요약 (상단 대시보드) ---
@@ -142,7 +145,7 @@ if os.path.exists(filename):
                     else:
                         views_formatted = f"{views_count:,}회"
                     
-                    # 세로형 9:16 카드 렌더링
+                    # 세로형 9:16 카드 렌더링 (가운데 쇼츠 확대 적용)
                     st.markdown(f"""
                         <a href="{video_url}" target="_blank" style="text-decoration: none;">
                             <div class="card">
