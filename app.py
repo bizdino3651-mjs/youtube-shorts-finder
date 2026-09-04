@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import re
+import textwrap
 from urllib.parse import quote_plus
 from datetime import datetime, timezone
 
@@ -627,28 +628,19 @@ else:
                     f"{item['keyword']} {product_text.split(',')[0]}"
                 )
 
-                st.markdown(
-                    f"""
+                card_html = textwrap.dedent(f"""
                     <a href="{video_url}" target="_blank"
                        style="text-decoration:none;color:inherit;">
                         <div class="short-card">
                             <img src="{item['thumbnail_url']}"
                                  class="short-img">
                             <div class="card-body">
-                                <div class="card-title">
-                                    {item['title']}
-                                </div>
+                                <div class="card-title">{item['title']}</div>
 
                                 <div style="margin-top:8px;">
-                                    <span class="badge badge-hot">
-                                        {item['grade']}
-                                    </span>
-                                    <span class="badge">
-                                        점수 {item['shopping_score']}
-                                    </span>
-                                    <span class="badge">
-                                        👀 {views_text}
-                                    </span>
+                                    <span class="badge badge-hot">{item['grade']}</span>
+                                    <span class="badge">점수 {item['shopping_score']}</span>
+                                    <span class="badge">👀 {views_text}</span>
                                 </div>
 
                                 <div style="margin-top:7px;">
@@ -668,9 +660,9 @@ else:
                             </div>
                         </div>
                     </a>
-                    """,
-                    unsafe_allow_html=True
-                )
+                """).strip()
+
+                st.markdown(card_html, unsafe_allow_html=True)
 
                 st.link_button(
                     "🛒 상품 검색어 확인",
