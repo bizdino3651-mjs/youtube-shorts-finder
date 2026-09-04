@@ -628,39 +628,28 @@ else:
                     f"{item['keyword']} {product_text.split(',')[0]}"
                 )
 
-                card_html = textwrap.dedent(f"""
-                    <a href="{video_url}" target="_blank"
-                       style="text-decoration:none;color:inherit;">
-                        <div class="short-card">
-                            <img src="{item['thumbnail_url']}"
-                                 class="short-img">
-                            <div class="card-body">
-                                <div class="card-title">{item['title']}</div>
+                # IMPORTANT: keep the HTML as one physical line.
+                # Streamlit can interpret indented multiline HTML as a code block.
+                safe_title = str(item["title"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                safe_channel = str(item["channel_title"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                safe_products = str(product_text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-                                <div style="margin-top:8px;">
-                                    <span class="badge badge-hot">{item['grade']}</span>
-                                    <span class="badge">점수 {item['shopping_score']}</span>
-                                    <span class="badge">👀 {views_text}</span>
-                                </div>
-
-                                <div style="margin-top:7px;">
-                                    🚀 +{growth:,}회<br>
-                                    ⚡ {velocity_text}
-                                </div>
-
-                                <div style="margin-top:8px;">
-                                    <span class="badge badge-shop">
-                                        🛒 {product_text}
-                                    </span>
-                                </div>
-
-                                <div class="small" style="margin-top:7px;">
-                                    @{item['channel_title']}
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                """).strip()
+                card_html = (
+                    f'<a href="{video_url}" target="_blank" style="text-decoration:none;color:inherit;">'
+                    f'<div class="short-card">'
+                    f'<img src="{item["thumbnail_url"]}" class="short-img">'
+                    f'<div class="card-body">'
+                    f'<div class="card-title">{safe_title}</div>'
+                    f'<div style="margin-top:8px;">'
+                    f'<span class="badge badge-hot">{item["grade"]}</span> '
+                    f'<span class="badge">점수 {item["shopping_score"]}</span> '
+                    f'<span class="badge">👀 {views_text}</span>'
+                    f'</div>'
+                    f'<div style="margin-top:7px;">🚀 +{growth:,}회<br>⚡ {velocity_text}</div>'
+                    f'<div style="margin-top:8px;"><span class="badge badge-shop">🛒 {safe_products}</span></div>'
+                    f'<div class="small" style="margin-top:7px;">@{safe_channel}</div>'
+                    f'</div></div></a>'
+                )
 
                 st.markdown(card_html, unsafe_allow_html=True)
 
